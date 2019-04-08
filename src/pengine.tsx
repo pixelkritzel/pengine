@@ -55,9 +55,9 @@ export async function load(resource: string) {
       const { content, fmData } = await loadMarkdown(markdownPath);
       const subContentData = await getSubContentFrontMatter(getFilePath(resource));
       console.log(subContentData);
-      const { layout } = fmData;
+      const { layout = 'Default' } = fmData;
       const html = marked(content, { baseUrl: `/${resource}/` });
-      const { default: Layout } = await import('./layouts/' + layout);
+      const { default: Layout } = await import(`${process.cwd()}/theme/layouts/` + layout);
       const body = ReactDomServer.renderToStaticMarkup(<Layout content={html} />);
       const helmet = Helmet.renderStatic();
       return generateHtml(helmet, body);
