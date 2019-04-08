@@ -1,0 +1,43 @@
+@import 'normalize.scss';
+@import 'milligram/milligram';
+@import 'variables';
+@import 'media-queries';
+
+@import 'navigation';
+@import 'post-list-item';
+@import 'article';
+@import 'prism';
+
+.container {
+  max-width: 1200px;
+  padding: 2vh 3vw;
+}
+
+.title {
+  margin-bottom: 1rem;
+
+  a {
+    color: inherit;
+  }
+}
+
+.subtitle {
+  display: inline-block;
+  font-size: 1.6rem;
+  letter-spacing: normal;
+  margin-left: 32px;
+
+  @include media-query(sm-down) {
+    display: block;
+    margin-top: 0.8rem;
+  }
+}
+
+.nav {
+  margin-bottom: 2rem;
+}
+
+.nav-item {
+  display: inline-block;
+  margin-right: 1.5rem;
+}

@@ -1,4 +1,3 @@
 ---
+layout: List
 ---
-
-# Root of BlogPosts

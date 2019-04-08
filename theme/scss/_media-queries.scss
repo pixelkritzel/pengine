@@ -1,0 +1,49 @@
+@mixin media-query($size) {
+  @if $size == xs {
+    @media (max-width: $screen-width-xs) {
+      @content;
+    }
+  } @else if $size == sm-down {
+    @media (max-width: $screen-width-sm) {
+      @content;
+    }
+  } @else if $size == sm-only {
+    @media (min-width: $screen-width-xs + 1) and (max-width: $screen-width-sm) {
+      @content;
+    }
+  } @else if $size == sm-up {
+    @media (min-width: $screen-width-xs + 1) {
+      @content;
+    }
+  } @else if $size == md-down {
+    @media (max-width: $screen-width-md) {
+      @content;
+    }
+  } @else if $size == md-only {
+    @media (min-width: $screen-width-sm + 1) and (max-width: $screen-width-md) {
+      @content;
+    }
+  } @else if $size == md-up {
+    @media (min-width: $screen-width-sm + 1) {
+      @content;
+    }
+  } @else if $size == lg-down {
+    @media (max-width: $screen-width-lg) {
+      @content;
+    }
+  } @else if $size == lg-only {
+    @media (min-width: $screen-width-md + 1) and (max-width: $screen-width-lg) {
+      @content;
+    }
+  } @else if $size == lg-up {
+    @media (min-width: $screen-width-md + 1) {
+      @content;
+    }
+  }
+
+  @if $size == xl-up {
+    @media (min-width: $screen-width-lg + 1) {
+      @content;
+    }
+  }
+}

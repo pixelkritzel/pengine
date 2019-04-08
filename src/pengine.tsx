@@ -7,6 +7,7 @@ import { Helmet, HelmetData } from 'react-helmet';
 import marked from 'marked';
 import fm from 'front-matter';
 import { Request as IRequest, Response as IResponse, NextFunction as INextFunction } from 'express';
+import * as nodeSass from 'node-sass';
 
 const generateHtml = (helmet: HelmetData, body: string) => `
     <!doctype html>
@@ -15,6 +16,7 @@ const generateHtml = (helmet: HelmetData, body: string) => `
             ${helmet.title.toString()}
             ${helmet.meta.toString()}
             ${helmet.link.toString()}
+            <link rel="stylesheet" href="style.css">
         </head>
         <body ${helmet.bodyAttributes.toString()}>
             ${body}
@@ -22,49 +24,52 @@ const generateHtml = (helmet: HelmetData, body: string) => `
     </html>
 `;
 
-export function getFilePath(resource: string) {
-  return `${process.cwd()}/data/${resource}`;
+type IResource = string;
+
+export function getFilePath(resourcePath: IResource) {
+  return path.resolve(`${process.cwd()}/data/${resourcePath}`);
 }
 
 function testFileExists(path: string) {
   return fs.existsSync(path);
 }
 
-async function loadMarkdown(path: string) {
-  const fileContent = await promisify(fs.readFile)(path, 'utf8');
+async function loadMarkdown(resourcePath: IResource) {
+  const filePath = getFilePath(resourcePath + '/index.md');
+  const directoryConfigPath = getFilePath(resourcePath + '/../config.json');
+  let directoryConfig = {};
+  if (testFileExists(directoryConfigPath)) {
+    directoryConfig = await require(directoryConfigPath);
+  }
+  const fileContent = await promisify(fs.readFile)(filePath, 'utf8');
   const { attributes: fmData, body: content } = fm(fileContent);
-  return { fmData, content };
+  return {
+    data: { ...directoryConfig, ...fmData },
+    content: marked(content, { baseUrl: `/${resourcePath}/` }),
+    resourcePath
+  };
 }
 
-async function getSubContentFrontMatter(directoryPath: string) {
+async function getSubResources(resourcePath: IResource) {
+  const directoryPath = getFilePath(resourcePath);
   const directoryContent = await promisify(fs.readdir)(directoryPath);
 
   const subPaths = directoryContent
-    .map(name => path.join(directoryPath, name))
-    .filter(testIsDirectory)
-    .map(path => path + '/index.md')
-    .filter(testFileExists);
+    .filter(name => testIsDirectory(path.join(directoryPath, name)))
+    .map(path => resourcePath + '/' + path);
 
   return Promise.all(subPaths.map(await loadMarkdown));
 }
 
-export async function load(resource: string) {
-  const markdownPath = getFilePath(resource) + '/index.md';
-  try {
-    if (testFileExists(markdownPath)) {
-      const { content, fmData } = await loadMarkdown(markdownPath);
-      const subContentData = await getSubContentFrontMatter(getFilePath(resource));
-      console.log(subContentData);
-      const { layout = 'Default' } = fmData;
-      const html = marked(content, { baseUrl: `/${resource}/` });
-      const { default: Layout } = await import(`${process.cwd()}/theme/layouts/` + layout);
-      const body = ReactDomServer.renderToStaticMarkup(<Layout content={html} />);
-      const helmet = Helmet.renderStatic();
-      return generateHtml(helmet, body);
-    }
-  } catch (e) {
-    console.log(e);
-  }
+export async function load(resource: IResource) {
+  const { content, data } = await loadMarkdown(resource);
+  const subResources = await getSubResources(resource);
+  const { layout = 'Default' } = data;
+  const props = { content, subResources, data };
+  const { default: Layout } = await import(`${process.cwd()}/theme/layouts/` + layout);
+  const body = ReactDomServer.renderToStaticMarkup(<Layout {...props} />);
+  const helmet = Helmet.renderStatic();
+  return generateHtml(helmet, body);
 }
 
 function testIsDirectory(path: string) {
@@ -79,13 +84,23 @@ function testIsDirectory(path: string) {
 export async function pengine(req: IRequest, res: IResponse, next: INextFunction) {
   const { path } = req;
   const resource = path.substring(1, path.length);
+  if (resource === 'style.css') {
+    const { css } = await promisify(nodeSass.render)({ file: `${process.cwd()}/theme/scss/style.scss` });
+    res.type('text/css');
+    res.send(css.toString());
+    next();
+  }
   const fsPath = getFilePath(resource);
-  console.log(fsPath);
-  const isDirectory = testIsDirectory(fsPath);
-  if (isDirectory) {
-    const response = await load(resource);
-    res.send(response);
+  if (testFileExists(fsPath)) {
+    const isDirectory = testIsDirectory(fsPath);
+    if (isDirectory) {
+      const response = await load(resource);
+      res.send(response);
+    } else {
+      res.sendFile(fsPath);
+    }
   } else {
-    res.sendFile(fsPath);
+    res.statusCode = 404;
+    next();
   }
 }

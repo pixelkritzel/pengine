@@ -1,0 +1,25 @@
+.article {
+  img {
+    padding: 1em;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 1px rgba(0, 0, 0, 0.15);
+  }
+
+  .time-container {
+    @extend .clearfix;
+
+    time {
+      float: right;
+      padding: 0 8px 2px;
+      margin-bottom: 8px;
+      margin-left: 2em;
+      color: lighten($color-secondary, 16%);
+      border-bottom: 2px dashed lighten($color-secondary, 36%);
+    }
+  }
+
+  pre[class*='language-']:before,
+  pre[class*='language-']:after {
+    display: none;
+  }
+}

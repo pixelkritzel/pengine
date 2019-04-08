@@ -1,15 +1,15 @@
 import * as React from 'react';
 import { Helmet } from 'react-helmet';
 
-export default class RootLayout extends React.Component<{ content: string; subResources: any }> {
+export default class ArticleLayout extends React.Component<{ content: string; data: any; subResources: any }> {
   render() {
+    const { content, data } = this.props;
     return (
       <>
         <Helmet>
-          <title>This is pixelkritzel!</title>
+          <title>{data.title}</title>
         </Helmet>
-        <h1>I'm a server side rendered static react app!</h1>
-        And this my content:
+        <h1>{data.title}</h1>
         <div dangerouslySetInnerHTML={{ __html: this.props.content }}>{}</div>
       </>
     );
