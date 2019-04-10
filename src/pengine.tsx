@@ -1,13 +1,13 @@
 import * as React from 'react';
 import * as ReactDomServer from 'react-dom/server';
-import * as fs from 'fs';
-import * as path from 'path';
+
 import { promisify } from 'util';
 import { Helmet, HelmetData } from 'react-helmet';
-import marked from 'marked';
-import fm from 'front-matter';
-import { Request as IRequest, Response as IResponse, NextFunction as INextFunction } from 'express';
+
+import { Request, Response, NextFunction } from 'express';
 import * as nodeSass from 'node-sass';
+import { FileSystemAdapter } from './FileSystemAdapter';
+import { Resource, ErrorMessage, DataAdapter } from './DataAdapter';
 
 const generateHtml = (helmet: HelmetData, body: string) => `
     <!doctype html>
@@ -16,7 +16,7 @@ const generateHtml = (helmet: HelmetData, body: string) => `
             ${helmet.title.toString()}
             ${helmet.meta.toString()}
             ${helmet.link.toString()}
-            <link rel="stylesheet" href="style.css">
+            <link rel="stylesheet" href="/style.css">
         </head>
         <body ${helmet.bodyAttributes.toString()}>
             ${body}
@@ -24,83 +24,49 @@ const generateHtml = (helmet: HelmetData, body: string) => `
     </html>
 `;
 
-type IResource = string;
+export type IResourcePath = string;
 
-export function getFilePath(resourcePath: IResource) {
-  return path.resolve(`${process.cwd()}/data/${resourcePath}`);
-}
+export class Pengine {
+  adapter: DataAdapter;
 
-function testFileExists(path: string) {
-  return fs.existsSync(path);
-}
-
-async function loadMarkdown(resourcePath: IResource) {
-  const filePath = getFilePath(resourcePath + '/index.md');
-  const directoryConfigPath = getFilePath(resourcePath + '/../config.json');
-  let directoryConfig = {};
-  if (testFileExists(directoryConfigPath)) {
-    directoryConfig = await require(directoryConfigPath);
+  constructor({ adapter }: { adapter: DataAdapter }) {
+    this.adapter = adapter;
   }
-  const fileContent = await promisify(fs.readFile)(filePath, 'utf8');
-  const { attributes: fmData, body: content } = fm(fileContent);
-  return {
-    data: { ...directoryConfig, ...fmData },
-    content: marked(content, { baseUrl: `/${resourcePath}/` }),
-    resourcePath
-  };
-}
 
-async function getSubResources(resourcePath: IResource) {
-  const directoryPath = getFilePath(resourcePath);
-  const directoryContent = await promisify(fs.readdir)(directoryPath);
-
-  const subPaths = directoryContent
-    .filter(name => testIsDirectory(path.join(directoryPath, name)))
-    .map(path => resourcePath + '/' + path);
-
-  return Promise.all(subPaths.map(await loadMarkdown));
-}
-
-export async function load(resource: IResource) {
-  const { content, data } = await loadMarkdown(resource);
-  const subResources = await getSubResources(resource);
-  const { layout = 'Default' } = data;
-  const props = { content, subResources, data };
-  const { default: Layout } = await import(`${process.cwd()}/theme/layouts/` + layout);
-  const body = ReactDomServer.renderToStaticMarkup(<Layout {...props} />);
-  const helmet = Helmet.renderStatic();
-  return generateHtml(helmet, body);
-}
-
-function testIsDirectory(path: string) {
-  try {
-    const stats = fs.statSync(path);
-    return stats.isDirectory();
-  } catch (e) {
-    console.log(e);
-  }
-}
-
-export async function pengine(req: IRequest, res: IResponse, next: INextFunction) {
-  const { path } = req;
-  const resource = path.substring(1, path.length);
-  if (resource === 'style.css') {
-    const { css } = await promisify(nodeSass.render)({ file: `${process.cwd()}/theme/scss/style.scss` });
-    res.type('text/css');
-    res.send(css.toString());
-    next();
-  }
-  const fsPath = getFilePath(resource);
-  if (testFileExists(fsPath)) {
-    const isDirectory = testIsDirectory(fsPath);
-    if (isDirectory) {
-      const response = await load(resource);
-      res.send(response);
-    } else {
-      res.sendFile(fsPath);
+  getResponse = async (resource: IResourcePath): Promise<{ body: string | Buffer; statusCode: number }> => {
+    const result = await this.adapter.load(resource);
+    if (result instanceof Resource) {
+      // continue with markdown conversion
+      const { layout = 'Default' } = result.data;
+      const { default: Layout } = await import(`${process.cwd()}/theme/layouts/` + layout);
+      const body = ReactDomServer.renderToStaticMarkup(<Layout {...result} />);
+      const helmet = Helmet.renderStatic();
+      return { body: generateHtml(helmet, body), statusCode: 200 };
     }
-  } else {
-    res.statusCode = 404;
-    next();
-  }
+    if (result instanceof Buffer) {
+      return { statusCode: 200, body: result };
+    }
+    if (result instanceof ErrorMessage) {
+      const { default: ErrorPage } = await import(`${process.cwd()}/theme/layouts/Error`);
+      const body = ReactDomServer.renderToStaticMarkup(<ErrorPage {...result} />);
+      const helmet = Helmet.renderStatic();
+      return { body: generateHtml(helmet, body), statusCode: result.statusCode };
+    }
+    return { statusCode: 500, body: 'This should not have happened' };
+  };
+
+  handle = async (req: Request, res: Response, next: NextFunction) => {
+    const { path: resourcePath } = req;
+    console.log(resourcePath);
+    if (resourcePath === '/style.css') {
+      const { css } = await promisify(nodeSass.render)({ file: `${process.cwd()}/theme/scss/style.scss` });
+      res.type('text/css');
+      res.send(css.toString());
+      next();
+    } else {
+      const { body, statusCode } = await this.getResponse(resourcePath);
+      res.statusCode = statusCode;
+      res.send(body);
+    }
+  };
 }

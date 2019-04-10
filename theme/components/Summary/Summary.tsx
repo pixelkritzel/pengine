@@ -20,7 +20,7 @@ interface ISubResource {
 
 export function Summary({ content, data, resourcePath }: ISubResource) {
   const { date, title } = data;
-  console.log(content);
+  // console.log(content);
   return (
     <article className="article post-list-item">
       <div className="time-container">
