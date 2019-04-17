@@ -57,7 +57,6 @@ export class Pengine {
 
   handle = async (req: Request, res: Response, next: NextFunction) => {
     const { path: resourcePath } = req;
-    console.log(resourcePath);
     if (resourcePath === '/style.css') {
       const { css } = await promisify(nodeSass.render)({ file: `${process.cwd()}/theme/scss/style.scss` });
       res.type('text/css');
