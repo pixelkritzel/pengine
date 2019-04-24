@@ -6,8 +6,9 @@ import { Helmet, HelmetData } from 'react-helmet';
 
 import { Request, Response, NextFunction } from 'express';
 import * as nodeSass from 'node-sass';
-import { FileSystemAdapter } from './FileSystemAdapter';
 import { Resource, ErrorMessage, DataAdapter } from './DataAdapter';
+import { updateDataDirectory } from './updateDataDirectory';
+import { config } from './config';
 
 const generateHtml = (helmet: HelmetData, body: string) => `
     <!doctype html>
@@ -44,6 +45,7 @@ export class Pengine {
       return { body: generateHtml(helmet, body), statusCode: 200 };
     }
     if (result instanceof Buffer) {
+      // send as file
       return { statusCode: 200, body: result };
     }
     if (result instanceof ErrorMessage) {
@@ -62,6 +64,9 @@ export class Pengine {
       res.type('text/css');
       res.send(css.toString());
       next();
+    } else if (resourcePath === config.updateResource) {
+      updateDataDirectory();
+      res.send();
     } else {
       const { body, statusCode } = await this.getResponse(resourcePath);
       res.statusCode = statusCode;

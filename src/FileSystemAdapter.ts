@@ -7,13 +7,14 @@ import marked from 'marked';
 
 import { DataAdapter, ErrorMessage, Resource } from './DataAdapter';
 import { IResourcePath } from './pengine';
+import { updateDataDirectory } from './updateDataDirectory';
+import { testFileExists } from './testFileExists';
+import { testIsResourceDirectory } from './testIsResourceDirectory';
+
+import { config } from './config';
 
 export function getFsPath(resourcePath: IResourcePath) {
-  return path.resolve(`${process.cwd()}/data/${resourcePath}`);
-}
-
-function testFileExists(path: string) {
-  return fs.existsSync(path);
+  return path.resolve(`${config.dataDir}/${resourcePath}`);
 }
 
 async function loadMarkdown(resourcePath: IResourcePath): Promise<Resource> {
@@ -38,29 +39,30 @@ async function getSubResources(resourcePath: IResourcePath) {
   const directoryContent = await promisify(fs.readdir)(directoryPath);
 
   const subPaths = directoryContent
-    .filter(name => testIsDirectory(path.join(directoryPath, name)))
+    .filter(name => testIsResourceDirectory(path.join(directoryPath, name)))
     .map(path => resourcePath + '/' + path);
 
   return Promise.all(subPaths.map(await loadMarkdown));
 }
 
-function testIsDirectory(path: string) {
-  try {
-    const stats = fs.statSync(path);
-    return stats.isDirectory();
-  } catch (e) {
-    console.log(e);
-  }
-}
-
 export class FileSystemAdapter extends DataAdapter {
+  constructor() {
+    super();
+    updateDataDirectory();
+  }
+
   async load(resourcePath: IResourcePath) {
     const fsPath = getFsPath(resourcePath);
     try {
       if (testFileExists(fsPath)) {
-        if (testIsDirectory(fsPath)) {
-          const result = await loadMarkdown(resourcePath);
-          return result;
+        if (testIsResourceDirectory(fsPath)) {
+          try {
+            const result = await loadMarkdown(resourcePath);
+
+            return result;
+          } catch (e) {
+            console.log(e);
+          }
         } else {
           const fileBuffer = await promisify(fs.readFile)(fsPath);
           if (fileBuffer) {
