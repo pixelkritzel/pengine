@@ -6,8 +6,9 @@ import { Helmet, HelmetData } from 'react-helmet';
 
 import { Request, Response, NextFunction } from 'express';
 import * as nodeSass from 'node-sass';
-import { FileSystemAdapter } from './FileSystemAdapter';
 import { Resource, ErrorMessage, DataAdapter } from './DataAdapter';
+import { updateDataDirectory } from './updateDataDirectory';
+import { config } from './config';
 
 const generateHtml = (helmet: HelmetData, body: string) => `
     <!doctype html>
@@ -38,16 +39,17 @@ export class Pengine {
     if (result instanceof Resource) {
       // continue with markdown conversion
       const { layout = 'Default' } = result.data;
-      const { default: Layout } = await import(`${process.cwd()}/theme/layouts/` + layout);
+      const { default: Layout } = await import(`../theme/layouts/` + layout);
       const body = ReactDomServer.renderToStaticMarkup(<Layout {...result} />);
       const helmet = Helmet.renderStatic();
       return { body: generateHtml(helmet, body), statusCode: 200 };
     }
     if (result instanceof Buffer) {
+      // send as file
       return { statusCode: 200, body: result };
     }
     if (result instanceof ErrorMessage) {
-      const { default: ErrorPage } = await import(`${process.cwd()}/theme/layouts/Error`);
+      const { default: ErrorPage } = await import(`../theme/layouts/Error`);
       const body = ReactDomServer.renderToStaticMarkup(<ErrorPage {...result} />);
       const helmet = Helmet.renderStatic();
       return { body: generateHtml(helmet, body), statusCode: result.statusCode };
@@ -62,6 +64,9 @@ export class Pengine {
       res.type('text/css');
       res.send(css.toString());
       next();
+    } else if (resourcePath === config.updateResource) {
+      updateDataDirectory();
+      res.send();
     } else {
       const { body, statusCode } = await this.getResponse(resourcePath);
       res.statusCode = statusCode;
