@@ -49,7 +49,7 @@ export class Pengine {
       return { statusCode: 200, body: result };
     }
     if (result instanceof ErrorMessage) {
-      const { default: ErrorPage } = await import(`${process.cwd()}/theme/layouts/Error`);
+      const { default: ErrorPage } = await import(`../theme/layouts/Error`);
       const body = ReactDomServer.renderToStaticMarkup(<ErrorPage {...result} />);
       const helmet = Helmet.renderStatic();
       return { body: generateHtml(helmet, body), statusCode: result.statusCode };
