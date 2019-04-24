@@ -39,7 +39,7 @@ export class Pengine {
     if (result instanceof Resource) {
       // continue with markdown conversion
       const { layout = 'Default' } = result.data;
-      const { default: Layout } = await import(`${process.cwd()}/theme/layouts/` + layout);
+      const { default: Layout } = await import(`../theme/layouts/` + layout);
       const body = ReactDomServer.renderToStaticMarkup(<Layout {...result} />);
       const helmet = Helmet.renderStatic();
       return { body: generateHtml(helmet, body), statusCode: 200 };
