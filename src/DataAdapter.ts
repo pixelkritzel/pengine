@@ -1,47 +1,37 @@
+/* tslint:disable:max-classes-per-file */
+
 import { IResourcePath } from './pengine';
 
-interface IResourceData {
+export interface IResourceData {
   layout: string;
   date: Date;
-  published: boolean;
+  draft: boolean;
+  title: string;
 
   [k: string]: unknown;
 }
 
-export class Resource {
+export type IResourceResponse = {
+  type: 'resource';
   content: string;
-  subResources: Resource[];
+  subResources: IResourceResponse[];
   data: IResourceData;
   resourcePath: string;
+};
 
-  constructor({
-    content,
-    data,
-    resourcePath,
-    subResources = []
-  }: {
-    content: string;
-    data: IResourceData;
-    resourcePath: IResourcePath;
-    subResources?: Resource[];
-  }) {
-    this.content = content;
-    this.data = data;
-    this.resourcePath = resourcePath;
-    this.subResources = subResources;
-  }
-}
-
-export class ErrorMessage {
+export type IErrorResponse = {
+  type: 'error';
   message: string;
   statusCode: number;
+};
 
-  constructor(err: { statusCode: number; message: string }) {
-    this.message = err.message;
-    this.statusCode = err.statusCode;
-  }
-}
+export type IBufferResponse = {
+  type: 'buffer';
+  buffer: Buffer;
+};
+
+export type IResponseTypes = IResourceResponse | IErrorResponse | IBufferResponse;
 
 export abstract class DataAdapter {
-  abstract async load(resource: IResourcePath): Promise<Resource | Buffer | ErrorMessage>;
+  abstract async load(resource: IResourcePath): Promise<IResponseTypes>;
 }

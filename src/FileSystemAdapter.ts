@@ -5,11 +5,12 @@ import { promisify } from 'util';
 import fm from 'front-matter';
 import marked from 'marked';
 
-import { DataAdapter, ErrorMessage, Resource } from './DataAdapter';
+import { DataAdapter, IResourceResponse, IResponseTypes } from './DataAdapter';
 import { IResourcePath } from './pengine';
 import { updateDataDirectory } from './updateDataDirectory';
 import { testFileExists } from './testFileExists';
 import { testIsResourceDirectory } from './testIsResourceDirectory';
+import { mergeDefaultFrontMatterData } from './mergeDefaultFrontmatterData';
 
 import { config } from './config';
 
@@ -17,7 +18,7 @@ export function getFsPath(resourcePath: IResourcePath) {
   return path.resolve(`${config.dataDir}/${resourcePath}`);
 }
 
-async function loadMarkdown(resourcePath: IResourcePath): Promise<Resource> {
+async function loadMarkdown(resourcePath: IResourcePath): Promise<IResourceResponse> {
   const filePath = getFsPath(resourcePath + '/index.md');
   const directoryConfigPath = getFsPath(resourcePath + '/../config.json');
   let directoryConfig = {};
@@ -26,12 +27,14 @@ async function loadMarkdown(resourcePath: IResourcePath): Promise<Resource> {
   }
   const fileContent = await promisify(fs.readFile)(filePath, 'utf8');
   const { attributes: fmData, body: content } = fm(fileContent);
-  return new Resource({
-    data: { ...directoryConfig, ...fmData },
-    content: marked(content, { baseUrl: `${resourcePath}/` }),
+  const html = marked(content, { baseUrl: `${resourcePath}/` });
+  return {
+    type: 'resource',
+    data: { ...directoryConfig, ...mergeDefaultFrontMatterData(fmData, html) },
+    content: html,
     resourcePath,
     subResources: await getSubResources(resourcePath)
-  });
+  };
 }
 
 async function getSubResources(resourcePath: IResourcePath) {
@@ -40,7 +43,7 @@ async function getSubResources(resourcePath: IResourcePath) {
 
   const subPaths = directoryContent
     .filter(name => testIsResourceDirectory(path.join(directoryPath, name)))
-    .map(path => resourcePath + '/' + path);
+    .map(directoryName => resourcePath + '/' + directoryName);
 
   return Promise.all(subPaths.map(await loadMarkdown));
 }
@@ -51,7 +54,7 @@ export class FileSystemAdapter extends DataAdapter {
     updateDataDirectory();
   }
 
-  async load(resourcePath: IResourcePath) {
+  async load(resourcePath: IResourcePath): Promise<IResponseTypes> {
     const fsPath = getFsPath(resourcePath);
     try {
       if (testFileExists(fsPath)) {
@@ -61,16 +64,21 @@ export class FileSystemAdapter extends DataAdapter {
 
             return result;
           } catch (e) {
-            console.log(e);
+            console.log(e); // tslint:disable-line:no-console
           }
         } else {
-          const fileBuffer = await promisify(fs.readFile)(fsPath);
-          if (fileBuffer) {
-            return fileBuffer;
+          const buffer = await promisify(fs.readFile)(fsPath);
+          if (buffer) {
+            return {
+              type: 'buffer',
+              buffer
+            };
           }
         }
       }
-    } catch (e) {}
-    return new ErrorMessage({ statusCode: 404, message: 'File not found' });
+    } catch (e) {
+      console.log(e); // tslint:disable-line:no-console
+    }
+    return { type: 'error', statusCode: 404, message: 'File not found' };
   }
 }

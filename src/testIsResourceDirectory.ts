@@ -6,6 +6,6 @@ export function testIsResourceDirectory(path: string) {
     const stats = fs.statSync(path);
     return stats.isDirectory() && testFileExists(`${path}/index.md`);
   } catch (e) {
-    console.log(e);
+    console.log(e); // tslint:disable-line:no-console
   }
 }

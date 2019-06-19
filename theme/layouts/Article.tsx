@@ -9,10 +9,12 @@ export default class ArticleLayout extends React.Component<{ content: string; da
       <>
         <Helmet>
           <title>{data.title}</title>
+          <meta name="description" content={data.summary} />
         </Helmet>
         <Container>
           <h1>{data.title}</h1>
-          <div dangerouslySetInnerHTML={{ __html: this.props.content }}>{}</div>
+          WTF
+          <div dangerouslySetInnerHTML={{ __html: content }}>{}</div>
         </Container>
       </>
     );

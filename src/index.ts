@@ -10,5 +10,5 @@ const pengine = new Pengine({ adapter: new FileSystemAdapter() });
 app.all('*', pengine.handle);
 
 app.listen(56789, function() {
-  console.log('Example app listening on port 56789!');
+  console.log('Example app listening on port 56789!'); // tslint:disable-line:no-console
 });

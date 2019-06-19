@@ -1,26 +1,10 @@
 import * as React from 'react';
 import moment from 'moment';
-import cheerio from 'cheerio';
+import { Resource } from '../../../src/DataAdapter';
+import { truncateContent } from './truncateContent';
 
-function truncateContent(htmlString: string) {
-  const $ = cheerio.load(htmlString);
-  return $('p')
-    .first()
-    .html()!;
-}
-
-interface ISubResource {
-  data: {
-    date: string;
-    title: string;
-  };
-  content: string;
-  resourcePath: string;
-}
-
-export function Summary({ content, data, resourcePath }: ISubResource) {
+export function Summary({ content, data, resourcePath }: Resource) {
   const { date, title } = data;
-  // console.log(content);
   return (
     <article className="article post-list-item">
       <div className="time-container">
